@@ -1,49 +1,75 @@
 const { resolveSchema } = require('@asymmetrik/node-fhir-server-core')
 const pool = require('../data-access-layer/mysql/')
-const queryMapper = require('../data-access-layer/mysql/query-mapper')
+const { patientSelectStatement, generatePatientWhereClause } = require('../data-access-layer/mysql/query-mapper')
 const BundleEntry = require(resolveSchema('4_0_0', 'bundleentry'))
 const Bundle = require(resolveSchema('4_0_0', 'bundle'))
 const Patient = require(resolveSchema('4_0_0', 'patient'))
 
 module.exports.search = async (args, context) => {
+  // GET [base]/Patient?_id=1032702
+  // GET [base]/Patient?identifier=http://hospital.smarthealthit.org|1032702
+  // GET [base]/Patient?name=Shaw
+  // GET [base]/Patient?birthdate=[date]&name=[string]
+  // GET [base]/Patient?gender={[system]}|[code]&name=[string]
+  // debugger
+  const whereClause = generatePatientWhereClause(args)
   return new Promise((resolve, reject) => {
-    pool.query(`SELECT ${queryMapper} from patients limit 10`, (error, results, fields) => {
-      if (error) reject(error)
-      results = results.map((patient) => {
-        return {
-          // resourceType: 'Patient',
-          // active: true,
-          name: [
-            {
-              family: patient.family,
-              given: [patient.given],
-            },
-          ],
-          // identifier: [{ system: 'http://www.eirenerx.com', value: '23423' }],
-          // gender: 'male',
-        }
-      })
-      // debugger
+    pool.query(`SELECT ${patientSelectStatement} from patients ${whereClause} limit 100`, (error, results, fields) => {
+      if (error) return reject(error)
+      results = results.map(patientFhirMapper)
       const patients = results.map((result) => new Patient(result))
-      // debugger
-      const entries = patients.map((patient) => new BundleEntry({ resource: patient }))
-      // debugger
-      return resolve(new Bundle({ entry: entries }))
-      // console.log('RESULTS: ', results)
+      const entries = patients.map((patient) => new BundleEntry({ resource: patient, search: { mode: 'include' } }))
+      return resolve(new Bundle({ entry: entries, type: 'searchset', total: entries.length }))
     })
   })
-
-  // // You will need to build your query based on the sanitized args
-  // let query = myCustomQueryBuilder(args)
-  // let results = await db.patients.find(query).toArray()
-  // let patients = results.map((result) => new Patient(result))
-  // let entries = patients.map((patient) => new BundleEntry({ resource: patient }))
-  // return new Bundle({ entry: entries })
-  // return []
 }
 
 module.exports.searchById = async (args, context) => {
-  // let result = await db.patients.find({ _id: args.id })
-  // return new Patient(result)
-  return {}
+  return new Promise((resolve, reject) => {
+    pool.query(`SELECT ${patientSelectStatement} from patients WHERE id = ?`, [args.id], (error, [result], fields) => {
+      if (error) return reject(error)
+      //TODO: operation outcome if 404
+      if (!result) {
+        return resolve({})
+      }
+      return resolve(new Patient(patientFhirMapper(result)))
+    })
+  })
+}
+
+function patientFhirMapper(patient) {
+  return {
+    name: [
+      {
+        family: patient.family,
+        given: [patient.given, patient.mi].filter((elm) => elm),
+      },
+    ],
+    identifier: [{ system: 'http://www.eirenerx.com', value: patient.id }],
+    gender: patient.gender,
+    address: [
+      {
+        line: patient.addressFullStreetName.split(','),
+        city: patient.addressCity,
+        state: patient.addressState,
+        postalCode: patient.addressZip,
+      },
+    ],
+    telecom: [
+      {
+        system: 'phone',
+        value: patient.homePhone,
+        use: 'home',
+      },
+      {
+        system: 'phone',
+        value: patient.cellPHone,
+        use: 'mobile',
+      },
+      {
+        system: 'email',
+        value: patient.email,
+      },
+    ].filter((elm) => elm.value),
+  }
 }

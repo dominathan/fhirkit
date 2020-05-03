@@ -1,4 +1,4 @@
-version: "3.1"
+version: '3.1'
 
 services:
   test-db:
@@ -10,6 +10,18 @@ services:
       - 3306:3306
     volumes:
       - test-db-data:/var/lib/mysql
+  postgres-db:
+    image: postgres
+    restart: always
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: test_db
+    volumes:
+      - postgres-db-data:/var/lib/postgresql/data/
 
 volumes:
   test-db-data:
+  postgres-db-data:
