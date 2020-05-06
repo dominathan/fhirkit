@@ -1,10 +1,11 @@
 const clientConfig = require('../../../config/client.config')
 
 const patientTableAndColumnToFHIR = tableAndColumnToFhir(clientConfig.patient)
+const patientJoinTableStatement = joinTableGenerator(patientTableAndColumnToFHIR)
 const patientSelectStatement = selectStatementGenerator(patientTableAndColumnToFHIR)
 const medicationRequestTableAndColumnToFhir = tableAndColumnToFhir(clientConfig.medication)
 const medicationSelectStatement = selectStatementGenerator(medicationRequestTableAndColumnToFhir)
-
+// const patientJoinTableStatement = joinTableGenerator(patientTableAndColumnToFHIR)
 function tableAndColumnToFhir(fhirResourceType) {
   return Object.keys(fhirResourceType).map((elm) => Object.assign({ key: elm }, fhirResourceType[elm]))
 }
@@ -13,11 +14,24 @@ function selectStatementGenerator(tableAndColumnToFhirObject) {
   return tableAndColumnToFhirObject
     .map((elm) => {
       if (elm['columnname'].includes(',')) {
-        return `CONCAT_WS(",",${elm['tablename']}.${elm['columnname']}) AS ${elm['key']}`
+        const stringForUse = elm['columnname']
+          .split(',')
+          .map((col) => `${elm['tablename']}.${col}`)
+          .join(',')
+        return `CONCAT_WS(",",${stringForUse}) AS ${elm['key']}`
       }
       return `${elm['tablename']}.${elm['columnname']} AS ${elm['key']}`
     })
     .join(',')
+}
+
+function joinTableGenerator(tableAndColumnToFhirObject) {
+  return tableAndColumnToFhirObject
+    .filter((elm) => elm.fk)
+    .map((elm) => {
+      return `LEFT OUTER JOIN ${elm.tablename} ON ${elm.tablename}.${elm.fk} = patients.id`
+    })
+    .join(' ')
 }
 
 function generateWhereClause(tableAndColumnToFhirObject) {
@@ -42,6 +56,7 @@ function generateWhereClause(tableAndColumnToFhirObject) {
 
     if (queryParamsObject['birthdate']) {
       const birthdate = tableAndColumnToFhirObject.find((elm) => elm.key === 'birthDate')
+      //what if type id DATETIME and not Date
       birthdateWhereClause = `${birthdate.tablename}.${birthdate.columnname} = '${queryParamsObject['birthdate']}'`
     }
     let whereStr = ''
@@ -56,13 +71,15 @@ function generateWhereClause(tableAndColumnToFhirObject) {
     if (genderWhereClause) {
       whereStr += whereStr ? ` AND ${genderWhereClause}` : `WHERE ${genderWhereClause}`
     }
-    debugger
     return whereStr
   }
 }
 
 const generatePatientWhereClause = generateWhereClause(patientTableAndColumnToFHIR)
 
-module.exports = { patientSelectStatement, medicationSelectStatement, generatePatientWhereClause }
-
-// generateWhereClauses(patientTableAndColumnToFHIR, 'name=Mark&birthdate=1987-09-17&gender=female')
+module.exports = {
+  patientSelectStatement,
+  medicationSelectStatement,
+  generatePatientWhereClause,
+  patientJoinTableStatement,
+}

@@ -14,7 +14,7 @@ module.exports.search = async (args, context) => {
   // GET [base]/MedicationRequest?patient=1137192&intent=order&status=active&_include=MedicationRequest:medication
   return new Promise((resolve, reject) => {
     pool.query(
-      `SELECT ${medicationSelectStatement} from patient_medications ORDER BY created_at DESC LIMIT 100 `,
+      `SELECT ${medicationSelectStatement} from patient_medications ORDER BY id DESC LIMIT 100 `,
       (error, results, fields) => {
         console.log('ERROR: ', error)
         if (error) return reject(error)
@@ -54,11 +54,11 @@ function medicationRequestFhirMapper(medication) {
     medicationCodeableConcept: {
       coding: [
         {
-          system: 'http://ndc.com',
+          system: 'http://hl7.org/fhir/sid/ndc',
           code: medication.ndc,
         },
         {
-          system: 'http://rxnorm.com',
+          system: 'http://www.nlm.nih.gov/research/umls/rxnorm',
           code: medication.rxnorm,
         },
       ].filter((elm) => elm.code),

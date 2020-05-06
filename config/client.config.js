@@ -52,9 +52,12 @@ module.exports = {
       tablename: 'patients',
       columnname: 'id',
     },
-    // externalIdentifier: {
-    //   tablename: 'patient_external_identifier',
-    // }
+    externalIdentifier: {
+      tablename: 'patient_external_identifiers',
+      fk: 'patient_id',
+      fkTable: 'patients',
+      columnname: 'name,identifier',
+    },
   },
   medication: {
     id: {
