@@ -1,13 +1,17 @@
 const clientConfig = require('../../../config/client.config')
 
+const patientRootTable = clientConfig.patient.rootTable
+const medicationRootTable = clientConfig.medication.rootTable
 const patientTableAndColumnToFHIR = tableAndColumnToFhir(clientConfig.patient)
 const patientJoinTableStatement = joinTableGenerator(patientTableAndColumnToFHIR)
 const patientSelectStatement = selectStatementGenerator(patientTableAndColumnToFHIR)
 const medicationRequestTableAndColumnToFhir = tableAndColumnToFhir(clientConfig.medication)
 const medicationSelectStatement = selectStatementGenerator(medicationRequestTableAndColumnToFhir)
-// const patientJoinTableStatement = joinTableGenerator(patientTableAndColumnToFHIR)
+
 function tableAndColumnToFhir(fhirResourceType) {
-  return Object.keys(fhirResourceType).map((elm) => Object.assign({ key: elm }, fhirResourceType[elm]))
+  return Object.keys(fhirResourceType)
+    .filter((elm) => elm !== 'rootTable')
+    .map((elm) => Object.assign({ key: elm }, fhirResourceType[elm]))
 }
 
 function selectStatementGenerator(tableAndColumnToFhirObject) {
@@ -29,7 +33,7 @@ function joinTableGenerator(tableAndColumnToFhirObject) {
   return tableAndColumnToFhirObject
     .filter((elm) => elm.fk)
     .map((elm) => {
-      return `LEFT OUTER JOIN ${elm.tablename} ON ${elm.tablename}.${elm.fk} = patients.id`
+      return `LEFT OUTER JOIN ${elm.tablename} ON ${elm.tablename}.${elm.fk} = ${elm.fkTable}.${elm.fkColumn}`
     })
     .join(' ')
 }
@@ -75,11 +79,32 @@ function generateWhereClause(tableAndColumnToFhirObject) {
   }
 }
 
+function generateMedReqWhereClause(tableAndColumnToFhirObject) {
+  return function (queryParamsObject) {
+    let patientWhereClause
+    if (queryParamsObject['patient']) {
+      const patient = tableAndColumnToFhirObject.find((elm) => elm.key === 'patientId')
+      patientWhereClause = `${patient.tablename}.${patient.columnname} = ${queryParamsObject['patient']}`
+    }
+
+    let whereStr = ''
+
+    if (patientWhereClause) {
+      whereStr += whereStr ? ` AND ${patientWhereClause}` : `WHERE ${patientWhereClause}`
+    }
+    return whereStr
+  }
+}
+
 const generatePatientWhereClause = generateWhereClause(patientTableAndColumnToFHIR)
+const medReqWhereClause = generateMedReqWhereClause(medicationRequestTableAndColumnToFhir)
 
 module.exports = {
   patientSelectStatement,
   medicationSelectStatement,
   generatePatientWhereClause,
   patientJoinTableStatement,
+  patientRootTable,
+  medicationRootTable,
+  medReqWhereClause,
 }

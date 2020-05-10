@@ -1,6 +1,10 @@
 const { resolveSchema } = require('@asymmetrik/node-fhir-server-core')
 const pool = require('../data-access-layer/mysql/')
-const { medicationSelectStatement } = require('../data-access-layer/mysql/query-mapper')
+const {
+  medicationSelectStatement,
+  medicationRootTable,
+  medReqWhereClause,
+} = require('../data-access-layer/mysql/query-mapper')
 const BundleEntry = require(resolveSchema('4_0_0', 'bundleentry'))
 const Bundle = require(resolveSchema('4_0_0', 'bundle'))
 const MedicationRequest = require(resolveSchema('4_0_0', 'medicationrequest'))
@@ -12,9 +16,10 @@ module.exports.search = async (args, context) => {
 
   // GET [base]/MedicationRequest?patient=1137192&intent=order&status=active
   // GET [base]/MedicationRequest?patient=1137192&intent=order&status=active&_include=MedicationRequest:medication
+  const whereClause = medReqWhereClause(args)
   return new Promise((resolve, reject) => {
     pool.query(
-      `SELECT ${medicationSelectStatement} from patient_medications ORDER BY id DESC LIMIT 100 `,
+      `SELECT ${medicationSelectStatement} from ${medicationRootTable} ${whereClause} ORDER BY id DESC LIMIT 100 `,
       (error, results, fields) => {
         console.log('ERROR: ', error)
         if (error) return reject(error)
@@ -32,7 +37,7 @@ module.exports.search = async (args, context) => {
 module.exports.searchById = async (args, context) => {
   return new Promise((resolve, reject) => {
     pool.query(
-      `SELECT ${medicationSelectStatement} from patient_medications WHERE id = ?`,
+      `SELECT ${medicationSelectStatement} from ${medicationRootTable} WHERE id = ?`,
       [args.id],
       (error, [result], fields) => {
         if (error) return reject(error)

@@ -1,5 +1,6 @@
 module.exports = {
   patient: {
+    rootTable: 'patients',
     family: {
       tablename: 'patients',
       columnname: 'last_name',
@@ -57,9 +58,11 @@ module.exports = {
       fk: 'patient_id',
       fkTable: 'patients',
       columnname: 'name,identifier',
+      fkColumn: 'id',
     },
   },
   medication: {
+    rootTable: 'patient_medications',
     id: {
       tablename: 'patient_medications',
       columnname: 'id',

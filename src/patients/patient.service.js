@@ -4,6 +4,7 @@ const {
   patientSelectStatement,
   generatePatientWhereClause,
   patientJoinTableStatement,
+  patientRootTable,
 } = require('../data-access-layer/mysql/query-mapper')
 const BundleEntry = require(resolveSchema('4_0_0', 'bundleentry'))
 const Bundle = require(resolveSchema('4_0_0', 'bundle'))
@@ -19,7 +20,7 @@ module.exports.search = async (args, context) => {
   const whereClause = generatePatientWhereClause(args)
   return new Promise((resolve, reject) => {
     pool.query(
-      `SELECT ${patientSelectStatement} from patients ${patientJoinTableStatement} ${whereClause} ORDER BY patients.id limit 1000`,
+      `SELECT ${patientSelectStatement} from ${patientRootTable} ${patientJoinTableStatement} ${whereClause} ORDER BY patients.id limit 1000`,
       (error, results, fields) => {
         if (error) return reject(error)
         results = patientFhirMapper(results)
@@ -34,7 +35,7 @@ module.exports.search = async (args, context) => {
 module.exports.searchById = async (args, context) => {
   return new Promise((resolve, reject) => {
     pool.query(
-      `SELECT ${patientSelectStatement} from patients ${patientJoinTableStatement} WHERE patients.id = ?`,
+      `SELECT ${patientSelectStatement} from ${patientRootTable} ${patientJoinTableStatement} WHERE ${patientRootTable}.id = ?`,
       [args.id],
       (error, results, fields) => {
         // debugger
